@@ -1,0 +1,43 @@
+name: Weekly opportunity collection
+
+on:
+  schedule:
+    # Mondays 13:00 UTC (5am Los Angeles, 8am Washington DC in winter)
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Days to look back (leave blank for the default of 8)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Collect new postings
+        env:
+          RELIEFWEB_APPNAME: ${{ secrets.RELIEFWEB_APPNAME }}
+          DAYS: ${{ github.event.inputs.days }}
+        run: |
+          if [ -n "$DAYS" ]; then
+            python collect.py --days "$DAYS"
+          else
+            python collect.py
+          fi
+
+      - name: Save results to the repository
+        run: |
+          git config user.name "opportunity-scanner"
+          git config user.email "actions@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -m "Weekly collection $(date -u +%F)"
+          git push

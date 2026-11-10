@@ -1,0 +1,85 @@
+{
+  "lookback_days": 8,
+  "short_runway_days": 10,
+  "max_text_chars": 12000,
+  "keywords": [
+    "evaluation",
+    "évaluation",
+    "evaluación",
+    "baseline",
+    "midline",
+    "midterm",
+    "mid-term",
+    "endline",
+    "final evaluation",
+    "impact",
+    "survey",
+    "enquête",
+    "assessment",
+    "study",
+    "étude",
+    "research",
+    "monitoring",
+    "MEAL",
+    "M&E",
+    "MEL",
+    "learning",
+    "capacity building",
+    "training",
+    "data collection",
+    "mixed methods",
+    "OECD",
+    "DAC",
+    "health",
+    "nutrition",
+    "education",
+    "school feeding",
+    "McGovern-Dole",
+    "USDA",
+    "inclusion",
+    "disability",
+    "gender",
+    "WASH",
+    "firm",
+    "cabinet",
+    "request for proposal",
+    "RFP"
+  ],
+  "reliefweb": {
+    "types": [
+      "Consultancy"
+    ],
+    "title_terms": [
+      "RFP",
+      "request for proposal",
+      "request for proposals",
+      "tender",
+      "terms of reference",
+      "call for proposals",
+      "expression of interest",
+      "appel d'offres",
+      "termes de référence",
+      "baseline",
+      "midterm evaluation",
+      "endline",
+      "final evaluation"
+    ]
+  },
+  "worldbank": {
+    "notice_types": [
+      "Request for Expression of Interest"
+    ],
+    "max_pages": 30
+  },
+  "min_link_text_chars": 25,
+  "watched_pages": [
+    {
+      "name": "CRS bid opportunities",
+      "url": "https://www.crs.org/bid-opportunities"
+    },
+    {
+      "name": "Counterpart International",
+      "url": "https://www.counterpart.org/business-opportunities/"
+    }
+  ]
+}
