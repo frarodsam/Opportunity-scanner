@@ -72,14 +72,15 @@
     "max_pages": 30
   },
   "min_link_text_chars": 25,
-  "watched_pages": [
+ "watched_pages": [
     {
       "name": "CRS bid opportunities",
-      "url": "https://www.crs.org/bid-opportunities"
+      "url": "https://www.crs.org/bid-opportunities",
+      "link_pattern": "/bids/"
     },
     {
       "name": "Counterpart International",
-      "url": "https://www.counterpart.org/business-opportunities/"
+      "url": "https://www.counterpart.org/business-opportunities/",
+      "link_pattern": "/business-opportunities/."
     }
   ]
-}
