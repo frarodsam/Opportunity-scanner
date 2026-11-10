@@ -72,7 +72,7 @@
     "max_pages": 30
   },
   "min_link_text_chars": 25,
- "watched_pages": [
+  "watched_pages": [
     {
       "name": "CRS bid opportunities",
       "url": "https://www.crs.org/bid-opportunities",
@@ -82,5 +82,74 @@
       "name": "Counterpart International",
       "url": "https://www.counterpart.org/business-opportunities/",
       "link_pattern": "/business-opportunities/."
+    },
+    {
+      "name": "Save the Children US RFPs",
+      "url": "https://www.savethechildren.org/us/about-us/contact-us/rfp",
+      "link_pattern": "rfp|rfq|proposal|tender|\\.pdf"
+    },
+    {
+      "name": "American Evaluation Association careers",
+      "url": "https://careers.eval.org/",
+      "link_pattern": "/job"
+    },
+    {
+      "name": "Partners of the Americas RFPs",
+      "url": "https://www.partners.net/get-involved/rfps/",
+      "link_pattern": "/rfps/."
+    },
+    {
+      "name": "UNESCO consultancies (UN Talent)",
+      "url": "https://untalent.org/jobs-at-unesco/in-anything/contract-consulting/anywhere",
+      "link_pattern": "/jobs/[a-z0-9-]{12,}"
+    },
+    {
+      "name": "PurposePhil",
+      "url": "https://www.purposephilcareer.com/jobs",
+      "link_pattern": "/jobs/\\d+-.*(consult|evaluat|research|learning|rfp|contract)"
+    },
+    {
+      "name": "Impactpool (page 1)",
+      "url": "https://www.impactpool.org/search?page=1&per_page=40",
+      "link_pattern": "consult|evaluat|évaluat|monitoring|MEAL|M&E|research|survey|assessment|study|baseline|endline"
+    },
+    {
+      "name": "Impactpool (page 2)",
+      "url": "https://www.impactpool.org/search?page=2&per_page=40",
+      "link_pattern": "consult|evaluat|évaluat|monitoring|MEAL|M&E|research|survey|assessment|study|baseline|endline"
+    },
+    {
+      "name": "Impactpool (page 3)",
+      "url": "https://www.impactpool.org/search?page=3&per_page=40",
+      "link_pattern": "consult|evaluat|évaluat|monitoring|MEAL|M&E|research|survey|assessment|study|baseline|endline"
+    },
+    {
+      "name": "Impactpool (page 4)",
+      "url": "https://www.impactpool.org/search?page=4&per_page=40",
+      "link_pattern": "consult|evaluat|évaluat|monitoring|MEAL|M&E|research|survey|assessment|study|baseline|endline"
+    },
+    {
+      "name": "Impactpool (page 5)",
+      "url": "https://www.impactpool.org/search?page=5&per_page=40",
+      "link_pattern": "consult|evaluat|évaluat|monitoring|MEAL|M&E|research|survey|assessment|study|baseline|endline"
     }
-  ]
+  ],
+  "ungm": {
+    "title_keywords": [
+      "evaluation",
+      "évaluation",
+      "evaluación",
+      "baseline",
+      "endline",
+      "midterm",
+      "survey",
+      "assessment",
+      "study",
+      "research",
+      "monitoring",
+      "learning",
+      "capacity"
+    ],
+    "agencies": []
+  }
+}
