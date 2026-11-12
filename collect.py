@@ -80,7 +80,27 @@ def http_json(url, body=None, timeout=60):
 DATE_FORMATS = (
     "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d",
     "%d-%b-%Y", "%d %b %Y", "%m/%d/%Y", "%Y/%m/%d",
+    "%B %d, %Y", "%b %d, %Y", "%d %B %Y", "%B %d %Y",
 )
+
+GENERIC_LINK_TEXT = {"apply now", "apply", "read more", "learn more", "view", "details",
+                     "view details", "more", "download", "click here", "see more"}
+
+# "Deadline: July 29, 2026", "Closing Date for Responses: November 6, 2026",
+# "Application deadline: 14 November 2026", "Closed Date: June 30, 2027"
+DEADLINE_IN_TEXT = re.compile(
+    r"(?i)(?:deadline|closing date|closed date|closes on|date limite|fecha l[ií]mite)"
+    r"[^:\n]{0,40}?:?\s*(?<![\d-])"
+    r"([A-Za-zéû]{3,9}\.? \d{1,2},? \d{4}|\d{1,2}(?:st|nd|rd|th)? [A-Za-zéû]{3,9}\.?,? \d{4}"
+    r"|\d{1,2}-[A-Za-z]{3}-\d{4}|\d{4}-\d{2}-\d{2})")
+
+
+def deadline_from_text(text):
+    m = DEADLINE_IN_TEXT.search(text or "")
+    if not m:
+        return None
+    raw = re.sub(r"(?<=\d)(st|nd|rd|th)\b", "", m.group(1)).replace(".", "")
+    return parse_date(raw) or parse_date(raw.replace(",", ""))
 
 
 def parse_date(value):
@@ -111,6 +131,26 @@ def keyword_hits(text, keywords):
     return [k for k in keywords if k.lower() in low]
 
 
+def priority_hits(text, cfg):
+    """Baseline, midline, endline and impact evaluations: the firm's core work."""
+    low = text.lower()
+    return [t for t in cfg.get("priority_terms", []) if t.lower() in low]
+
+
+def set_priority(posting, cfg):
+    # Single words like "baseline" count only in the title, because posting
+    # text uses them loosely (engineering baselines, baseline data). Specific
+    # phrases like "baseline survey" count anywhere in the first part of the text.
+    hits = priority_hits(posting["title"], cfg)
+    low = posting.get("text", "")[:4000].lower()
+    hits += [t for t in cfg.get("priority_phrases", []) if t.lower() in low and t not in hits]
+    flags = [f for f in posting["flags"].split("; ") if f and not f.startswith("PRIORITY")]
+    if hits:
+        flags.insert(0, "PRIORITY (%s)" % ", ".join(hits[:3]))
+    posting["flags"] = "; ".join(flags)
+    posting["priority"] = bool(hits)
+
+
 def strip_html(text):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text or "")).strip()
 
@@ -128,6 +168,7 @@ def finish(posting, cfg, today):
     posting["flags"] = "; ".join(flags)
     searchable = posting["title"] + " " + posting.get("text", "")
     posting["keyword_hits"] = "; ".join(keyword_hits(searchable, cfg["keywords"]))
+    set_priority(posting, cfg)
     return posting
 
 
@@ -410,6 +451,9 @@ def collect_pages(cfg, since, today, debug=False):
             if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
                 continue
             link = urllib.parse.urljoin(url, href).split("#")[0]
+            if link.rstrip("/").endswith("/apply"):
+                continue  # application form, not a posting
+            text = re.sub(r"^New job:\s*", "", text)
             if pattern:
                 if not pattern.search(link) and not pattern.search(text):
                     continue
@@ -487,11 +531,25 @@ def add_details(postings, cfg):
         except (urllib.error.URLError, urllib.error.HTTPError, ValueError, TimeoutError, OSError):
             kind, raw = "failed", ""
         text = page_text(raw) if kind == "html" else ""
+        if kind == "html" and p["title"].strip().lower() in GENERIC_LINK_TEXT:
+            m = re.search(r"(?is)<title[^>]*>(.*?)</title>", raw)
+            if m and strip_html(m.group(1)):
+                p["title"] = htmllib.unescape(strip_html(m.group(1)))[:200]
         if len(text) >= 200:
             summary = p["text"]
             p["text"] = ((summary + "\n\n") if summary else "") + text
             p["text"] = p["text"][: cfg["max_text_chars"]]
             p["keyword_hits"] = "; ".join(keyword_hits(p["title"] + " " + p["text"], cfg["keywords"]))
+            if not p["deadline"]:
+                found = deadline_from_text(text)
+                if found:
+                    today = datetime.now(timezone.utc).date()
+                    p["deadline"] = found.isoformat()
+                    p["days_left"] = (found - today).days
+                    if 0 <= p["days_left"] < cfg["short_runway_days"]:
+                        flags.append("short runway")
+                    flags = [f for f in flags if f != "no deadline found"]
+                    flags.append("deadline read from the page text: confirm it")
             got += 1
         elif kind == "pdf":
             flags.append("posting is a PDF: title only, open the link")
@@ -500,7 +558,12 @@ def add_details(postings, cfg):
             flags.append("could not read the posting: title only, open the link")
             failed += 1
         p["flags"] = "; ".join(flags)
-        time.sleep(cfg.get("detail_pause_seconds", 0.5))  # be polite to the sites
+        set_priority(p, cfg)
+        pause = cfg.get("detail_pause_seconds", 0.5)  # be polite to the sites
+        for site, seconds in (cfg.get("slow_sites") or {}).items():
+            if site in p["url"]:
+                pause = seconds
+        time.sleep(pause)
     print("Posting details: %d read, %d PDFs, %d could not be read" % (got, pdfs, failed))
 
 
@@ -546,8 +609,15 @@ def main(argv=None):
         batch_ids.add(p["id"])
         new.append(p)
     add_details(new, cfg)
+    # A date read out of page text can be wrong (for example a deadline for
+    # questions), so these are flagged and listed last, never dropped.
+    for p in new:
+        if p["days_left"] != "" and p["days_left"] < 0:
+            p["flags"] = "; ".join(f for f in [p["flags"], "page shows a past deadline: probably closed"] if f)
     # Most relevant-looking first: more keyword hits, then more time left.
-    new.sort(key=lambda p: (-len([k for k in p["keyword_hits"].split("; ") if k]),
+    new.sort(key=lambda p: (p["days_left"] != "" and p["days_left"] < 0,
+                            not p.get("priority"),
+                            -len([k for k in p["keyword_hits"].split("; ") if k]),
                             -(p["days_left"] if p["days_left"] != "" else 0)))
 
     stamp = today.isoformat()
