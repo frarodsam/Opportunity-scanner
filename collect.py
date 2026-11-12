@@ -2,11 +2,13 @@
 """
 Insight Pixels opportunity collector.
 
-Pulls new postings from ReliefWeb, World Bank procurement notices, and a list
-of watched web pages (INGO bid pages and similar), removes anything already
+Pulls new postings from ReliefWeb, World Bank procurement notices, the UN
+Global Marketplace, and a list of watched web pages (INGO bid pages and similar), removes anything already
 seen, and writes:
 
   data/weekly/YYYY-MM-DD.json   new postings with full text, for AI screening
+                                (for sites that only give a title and a link,
+                                the script opens each new link and saves the text)
   data/weekly/YYYY-MM-DD.csv    the same postings as a table, for people
   data/seen.json                IDs already collected, so nothing repeats
 
@@ -26,7 +28,9 @@ import csv
 import json
 import os
 import re
+import html as htmllib
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -275,6 +279,80 @@ def collect_worldbank(cfg, since, today, debug=False):
     return postings
 
 
+# ---------------------------------------------------------------- UN Global Marketplace
+
+UNGM_URL = "https://www.ungm.org/Public/Notice/Search"
+UNGM_DATE = re.compile(r"\b(\d{1,2}-[A-Za-z]{3}-\d{4})\b")
+
+
+def http_post_text(url, body, timeout=60):
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode("utf-8"), method="POST",
+        headers={"Content-Type": "application/json", "Accept": "text/html, */*",
+                 "X-Requested-With": "XMLHttpRequest",
+                 "User-Agent": "Mozilla/5.0 (compatible; insight-pixels-opportunity-scanner)"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def collect_ungm(cfg, since, today, debug=False):
+    """
+    UN Global Marketplace: where UNICEF, UNESCO and most other UN agencies
+    publish tenders. It has no official public API, so this uses the same
+    search request the website itself makes, once per title keyword.
+    If UNGM changes its site this source will fail on its own without
+    affecting the others.
+    """
+    settings = cfg.get("ungm") or {}
+    if not settings.get("title_keywords"):
+        return []
+    agencies = [a.lower() for a in settings.get("agencies", [])]
+    found = {}
+    for word in settings["title_keywords"]:
+        body = {
+            "PageIndex": 0, "PageSize": 100, "Title": word, "Description": "",
+            "Reference": "", "PublishedFrom": since.strftime("%d-%b-%Y"), "PublishedTo": "",
+            "DeadlineFrom": today.strftime("%d-%b-%Y"), "DeadlineTo": "",
+            "Countries": [], "Agencies": [], "UNSPSCs": [], "NoticeTypes": [],
+            "SortField": "DatePublished", "SortAscending": False, "isPicker": False,
+            "IsSustainable": False, "IsActive": True, "NoticeDisplayType": None,
+            "NoticeSearchTotalLabelId": "noticeSearchTotal", "TypeOfCompetitions": [],
+        }
+        html = http_post_text(UNGM_URL, body)
+        if debug:
+            print(html[:3000])
+            return []
+        # Each result row carries its notice number; the text between two
+        # markers is one row.
+        parts = re.split(r'data-noticeid="(\d+)"', html)
+        for i in range(1, len(parts) - 1, 2):
+            nid = parts[i]
+            cells = [c.strip() for c in re.split(r"<[^>]+>", parts[i + 1]) if c.strip()]
+            cells = [c for c in cells if c.lower() not in ("open in a new window",)]
+            if not cells or nid in found:
+                continue
+            row_text = " | ".join(cells)
+            if agencies and not any(a in row_text.lower() for a in agencies):
+                continue
+            dates = sorted(d for d in (parse_date(m) for m in UNGM_DATE.findall(row_text)) if d)
+            found[nid] = finish({
+                "id": "ungm:%s" % nid,
+                "source": "UNGM",
+                "title": max(cells[:4], key=len),
+                "organization": next((c for c in cells if c.lower() in agencies or c.isupper() and 2 < len(c) < 12), ""),
+                "country": "",
+                "posting_type": "UN tender notice",
+                "categories": "", "themes": "",
+                "posted": dates[0].isoformat() if dates else "",
+                "deadline": dates[-1].isoformat() if len(dates) > 1 else None,
+                "url": "https://www.ungm.org/Public/Notice/%s" % nid,
+                "text": row_text[: cfg["max_text_chars"]],
+                "flags": ["summary only: open the link for the full notice"],
+            }, cfg, today)
+    print("UNGM: %d notices since %s" % (len(found), since))
+    return list(found.values())
+
+
 # ---------------------------------------------------------------- watched pages
 
 class LinkParser(HTMLParser):
@@ -356,13 +434,74 @@ def collect_pages(cfg, since, today, debug=False):
                 "text": "",
                 "flags": ["open the link for details"],
             }, cfg, today))
-        print("  %s: %d links" % (name, len(found)))
+        note = "" if found else "  (none found: the page may load its listings with JavaScript)"
+        print("  %s: %d links%s" % (name, len(found), note))
     if failed and len(failed) == len(cfg.get("watched_pages", [])):
         raise ValueError("every watched page failed")
     if failed:
         print("Watched pages that failed: " + ", ".join(failed))
     print("Watched pages: %d links in total" % len(postings))
     return postings
+
+
+# ---------------------------------------------------------------- posting details
+
+def fetch_detail(url, timeout=30):
+    """Open one posting. Returns (kind, text): kind is 'html', 'pdf' or 'other'."""
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (compatible; insight-pixels-opportunity-scanner)",
+        "Accept": "text/html,application/xhtml+xml",
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        ctype = (resp.headers.get("Content-Type") or "").lower()
+        if "pdf" in ctype or url.lower().split("?")[0].endswith(".pdf"):
+            return "pdf", ""
+        if "html" not in ctype and "text" not in ctype:
+            return "other", ""
+        return "html", resp.read(2_000_000).decode("utf-8", errors="replace")
+
+
+def page_text(html):
+    """Readable text of a web page, without menus, scripts and styling."""
+    for tag in ("script", "style", "noscript", "nav", "header", "footer", "form", "svg"):
+        html = re.sub(r"(?is)<%s\b.*?</%s>" % (tag, tag), " ", html)
+    return htmllib.unescape(strip_html(html))
+
+
+def add_details(postings, cfg):
+    """
+    For postings that arrived as a title and a link only, open the link and
+    save the page text, so screening is based on the posting itself.
+    PDFs and pages that refuse the request are flagged instead.
+    """
+    if not cfg.get("fetch_details", True):
+        return
+    todo = [p for p in postings if p["id"].startswith(("page:", "ungm:"))]
+    todo = todo[: cfg.get("max_detail_fetches", 250)]
+    got = pdfs = failed = 0
+    for p in todo:
+        flags = [f for f in p["flags"].split("; ")
+                 if f and not f.startswith(("open the link", "summary only"))]
+        try:
+            kind, raw = fetch_detail(p["url"])
+        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, TimeoutError, OSError):
+            kind, raw = "failed", ""
+        text = page_text(raw) if kind == "html" else ""
+        if len(text) >= 200:
+            summary = p["text"]
+            p["text"] = ((summary + "\n\n") if summary else "") + text
+            p["text"] = p["text"][: cfg["max_text_chars"]]
+            p["keyword_hits"] = "; ".join(keyword_hits(p["title"] + " " + p["text"], cfg["keywords"]))
+            got += 1
+        elif kind == "pdf":
+            flags.append("posting is a PDF: title only, open the link")
+            pdfs += 1
+        else:
+            flags.append("could not read the posting: title only, open the link")
+            failed += 1
+        p["flags"] = "; ".join(flags)
+        time.sleep(cfg.get("detail_pause_seconds", 0.5))  # be polite to the sites
+    print("Posting details: %d read, %d PDFs, %d could not be read" % (got, pdfs, failed))
 
 
 # ---------------------------------------------------------------- main
@@ -386,7 +525,7 @@ def main(argv=None):
 
     collected, failures = [], []
     sources = (("ReliefWeb", collect_reliefweb), ("World Bank", collect_worldbank),
-               ("Watched pages", collect_pages))
+               ("UNGM", collect_ungm), ("Watched pages", collect_pages))
     for name, fn in sources:
         try:
             collected += fn(cfg, since, today, debug=args.debug)
@@ -406,11 +545,23 @@ def main(argv=None):
             continue  # already closed
         batch_ids.add(p["id"])
         new.append(p)
+    add_details(new, cfg)
     # Most relevant-looking first: more keyword hits, then more time left.
     new.sort(key=lambda p: (-len([k for k in p["keyword_hits"].split("; ") if k]),
                             -(p["days_left"] if p["days_left"] != "" else 0)))
 
     stamp = today.isoformat()
+    # A second run on the same day adds to that day's file instead of replacing it.
+    day_file = WEEKLY / (stamp + ".json")
+    if day_file.exists():
+        try:
+            earlier = json.loads(day_file.read_text(encoding="utf-8")).get("postings", [])
+        except ValueError:
+            earlier = []
+        have = {p["id"] for p in new}
+        new_count = len(new)
+        new = new + [p for p in earlier if p["id"] not in have]
+        print("Kept %d postings from an earlier run today." % (len(new) - new_count))
     (WEEKLY / (stamp + ".json")).write_text(
         json.dumps({"collected_on": stamp, "since": since.isoformat(),
                     "failed_sources": failures, "count": len(new), "postings": new},
