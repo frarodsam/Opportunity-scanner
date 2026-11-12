@@ -1,4 +1,4 @@
-# Insight Pixels Opportunity Scanner
+# Solicitation Tracker Opportunity Scanner
 
 Collects new consultancy and tender postings every week so nobody has to check
 each site by hand. It runs on GitHub for free and uses no paid services.
@@ -20,8 +20,8 @@ It adds simple flags to help triage: short runway (under 10 days), individual
 consultant selection, and postings not listed as consultancies.
 
 It does **not** decide what to pursue. The weekly file is then screened against
-the Insight Pixels criteria (service-line fit, sector, eligibility, registration
-requirements) with Claude, and a person makes the final call.
+the organization criteria (service-line fit, sector, eligibility, registration
+requirements) with AI, and a person makes the final call.
 
 ## One-time setup
 
