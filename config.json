@@ -143,6 +143,38 @@
   "min_link_text_chars": 25,
   "watched_pages": [
     {
+      "name": "UNDP procurement notices", 
+      "url": "https://procurement-notices.undp.org/", 
+      "link_pattern": "evaluat|évaluat|evaluac|baseline|endline|midline|mid-term|midterm|línea de base"},
+    {
+      "name": "European Evaluation Society jobs and tenders", 
+      "url": "https://europeanevaluation.org/jobs-tenders", 
+      "link_pattern": "evaluat|baseline|endline|midline|mid-term|midterm|survey|study|rfp|tender|consult"},
+     {
+       "name": "CARE USA RFPs", 
+       "url": "https://www.care.org/?p=7439", 
+       "link_pattern": "rfp|rfq|proposal|evaluat|baseline|endline|midline|midterm|survey|consult|\\.pdf"},
+     {
+       "name": "Mercy Corps tenders", 
+       "url": "https://www.mercycorps.org/tenders", 
+       "link_pattern": "/tenders/."},
+     {
+       "name": "FHI 360 business opportunities", 
+       "url": "https://www.fhi360.org/partner-us-business-opportunities/", 
+       "link_pattern": "solicitation|rfp|rfq|proposal|evaluat|baseline|endline|survey|consult"},
+    {
+      "name": "Nascent Solutions", 
+      "url": "https://www.nascents.org/jobs/", 
+      "link_pattern": "evaluat|baseline|endline|midterm|mid-term|survey|rfp|tor|consult|\\.pdf"},
+     {
+       "name": "NGO Jobs in Africa", 
+       "url": "https://ngojobsinafrica.com/", 
+       "link_pattern": "evaluat|baseline|endline|midline|mid-term|midterm|survey|consultan"},
+     {
+       "name": "World Bank corporate procurement", 
+       "url": "https://www.worldbank.org/en/about/corporate-procurement/business-opportunities/administrative-procurement", 
+       "link_pattern": "evaluat|survey|study|assessment|research|baseline|endline"},
+    {
       "name": "CRS bid opportunities",
       "url": "https://www.crs.org/bid-opportunities",
       "link_pattern": "/bids/"
