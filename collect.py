@@ -29,6 +29,7 @@ import json
 import os
 import re
 import html as htmllib
+import http.client
 import sys
 import time
 import urllib.error
@@ -37,6 +38,10 @@ import urllib.request
 from html.parser import HTMLParser
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+# Every way a site can fail to answer: refused, blocked, timed out, dropped the
+# connection, or sent something unreadable. None of these should stop the run.
+FETCH_ERRORS = (urllib.error.URLError, http.client.HTTPException, OSError, ValueError)
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -439,7 +444,7 @@ def collect_pages(cfg, since, today, debug=False):
         name, url = page["name"], page["url"]
         try:
             html = http_text(url)
-        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, TimeoutError) as exc:
+        except FETCH_ERRORS as exc:
             failed.append(name)
             print("  %s: FAILED (%s)" % (name, exc))
             continue
@@ -528,7 +533,7 @@ def add_details(postings, cfg):
                  if f and not f.startswith(("open the link", "summary only"))]
         try:
             kind, raw = fetch_detail(p["url"])
-        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, TimeoutError, OSError):
+        except FETCH_ERRORS:
             kind, raw = "failed", ""
         text = page_text(raw) if kind == "html" else ""
         if kind == "html" and p["title"].strip().lower() in GENERIC_LINK_TEXT:
@@ -592,7 +597,7 @@ def main(argv=None):
     for name, fn in sources:
         try:
             collected += fn(cfg, since, today, debug=args.debug)
-        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, TimeoutError) as exc:
+        except FETCH_ERRORS as exc:
             # One source failing should not stop the others.
             failures.append(name)
             print("%s: FAILED (%s)" % (name, exc))
