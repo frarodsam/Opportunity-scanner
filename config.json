@@ -158,18 +158,21 @@
        "name": "Mercy Corps tenders", 
        "url": "https://www.mercycorps.org/tenders", 
        "link_pattern": "/tenders/."},
-     {
-       "name": "FHI 360 business opportunities", 
-       "url": "https://www.fhi360.org/partner-us-business-opportunities/", 
-       "link_pattern": "solicitation|rfp|rfq|proposal|evaluat|baseline|endline|survey|consult"},
     {
+      "name": "FHI 360 solicitations", 
+      "url": "https://solicitations.fhi360.org/Solicitation.aspx", 
+      "link_pattern": "solicitation|rfp|rfq|proposal|evaluat|baseline|endline|survey|consult"},
+    {
+      "name": "FHI 360 consultant opportunities",
+      "url": "https://solicitations.fhi360.org/ConsultantSolicitation.aspx", 
+      "link_pattern": "solicitation|evaluat|baseline|endline|survey|consult"},
       "name": "Nascent Solutions", 
       "url": "https://www.nascents.org/jobs/", 
       "link_pattern": "evaluat|baseline|endline|midterm|mid-term|survey|rfp|tor|consult|\\.pdf"},
      {
-       "name": "NGO Jobs in Africa", 
-       "url": "https://ngojobsinafrica.com/", 
-       "link_pattern": "evaluat|baseline|endline|midline|mid-term|midterm|survey|consultan"},
+       "name": "NGO Jobs in Africa consultancies", 
+       "url": "https://ngojobsinafrica.com/job-type/consultancy/", 
+       "link_pattern": "/job/"},
      {
        "name": "World Bank corporate procurement", 
        "url": "https://www.worldbank.org/en/about/corporate-procurement/business-opportunities/administrative-procurement", 
